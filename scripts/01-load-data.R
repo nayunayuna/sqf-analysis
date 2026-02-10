@@ -26,5 +26,4 @@ for (yr in years) {
 }
 
 
-# ---- Yearly summaries ----
-names(sqf_2006)
+
