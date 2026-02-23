@@ -116,7 +116,7 @@ recode_sqf_year <- function(data_raw, year) {
                       pf_hcuff == "Y" | pf_pepsp == "Y" | pf_other == "Y"),
 
       # Precinct as integer
-      precinct = as.integer(precinct),
+      pct = as.integer(pct),
 
       # Coordinates as numeric
       xcoord = as.numeric(xcoord),
