@@ -1,27 +1,61 @@
-# ---- Load packages ----
+# ============================================================================
+# scripts/02-recode-data.R
+# Recode raw SQF data to standardized format
+# ============================================================================
+
 library(tidyverse)
 library(lubridate)
 
 # ---- Source helper functions ----
-source("scripts/01-load-data.R")  # For loading raw data
-source("R/data_recording.R") # For recoding functions
+source("R/data_recording.R")  # Contains recode_sqf_year() and helpers
 
 # ---- Load raw data ----
-# Assumes you've already run the data loading script and saved to RDS
-# If not, run the loading code from Assignment 1 first
+# SKIP sourcing 01-load-data.R (it already ran once to create sqf_raw.rds)
+# Just load the saved file directly:
+message("Loading raw SQF data...")
 sqf_raw <- read_rds("data/sqf_raw.rds")
+message(sprintf("Loaded: %s rows", format(nrow(sqf_raw), big.mark = ",")))
 
-message("Loaded raw SQF data: ", nrow(sqf_raw), " rows")
+# ---- Recode each year ----
+# Split by year, apply recoding function, combine results
+message("\nRecoding SQF data by year...")
 
-# ---- Recode each year using functional programming ----
-# Group by year, then map the recoding function over each group
 sqf_clean <- sqf_raw %>%
-  group_split(data_year) %>%
-  map_dfr(~ recode_sqf_year(.x, unique(.x$data_year)))
+  dplyr::group_split(data_year) %>%
+  purrr::map_dfr(
+    ~ recode_sqf_year(.x, year = .x$data_year[1]),
+    .id = NULL
+  )
 
-# Print summary
-message(sprintf("Recoded %s observations", format(nrow(sqf_clean), big.mark = ",")))
+# ---- Summary statistics ----
+message("\n=== Recoding Complete ===")
+message(sprintf("Total observations: %s", format(nrow(sqf_clean), big.mark = ",")))
+message(sprintf("Total columns: %d", ncol(sqf_clean)))
 
-# Save
+# Show observations per year
+year_summary <- sqf_clean %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(
+    n_stops = dplyr::n(),
+    .groups = "drop"
+  ) %>%
+  dplyr::arrange(year)
+
+print(year_summary)
+
+# ---- Save cleaned data ----
+message("\nSaving cleaned data...")
 write_rds(sqf_clean, "data/sqf_clean.rds", compress = "gz")
-message("Saved to: data/sqf_clean.rds")
+message("✓ Saved to: data/sqf_clean.rds")
+
+# ---- Quick data quality check ----
+message("\n=== Quick Data Quality Check ===")
+message(sprintf("Race distribution:\n"))
+print(table(sqf_clean$race, useNA = "ifany"))
+
+message(sprintf("\nPolice force used: %.2f%%", 
+                100 * mean(sqf_clean$police_force, na.rm = TRUE)))
+
+message(sprintf("Missing dates: %d (%.2f%%)", 
+                sum(is.na(sqf_clean$date)),
+                100 * mean(is.na(sqf_clean$date))))
