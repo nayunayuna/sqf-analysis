@@ -162,6 +162,7 @@ clean_age <- function(age_raw) {
 
   # Replace sentinel values with NA
   age_clean[age_clean %in% c(99, 377, 999)] <- NA
+  age_clean[age_clean < 0 | age_clean > 100] <- NA
 
   age_clean
 }

@@ -1,3 +1,8 @@
+# ============================================================================
+# R/03-validate-date.R
+# Run comprehensive validation checks on cleaned SQF data
+# ============================================================================
+
 # ---- Load packages ----
 library(tidyverse)
 

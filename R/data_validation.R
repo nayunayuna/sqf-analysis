@@ -1,3 +1,8 @@
+# ============================================================================
+# R/data_validation.R
+#' Performs comprehensive checks on cleaned SQF data to ensure 
+#' quality and catch potential data issues early.
+# ============================================================================
 #' Validate cleaned SQF data
 #'
 #' Performs comprehensive checks on cleaned SQF data to ensure
