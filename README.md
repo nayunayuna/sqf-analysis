@@ -2,7 +2,6 @@
 ## ==== Assignment #1: Setting up Files ====
 
 # NYC Stop and Frisk Analysis (2006-2012)
-
 Analysis of NYPD Stop, Question, and Frisk data.
 
 ## Data Source
@@ -43,9 +42,7 @@ project/
 ## ==== Assignment 2: Data Recoding & Validation ====
 ### Overview
 
-Assignment 2 transforms raw, messy SQF data into a clean, standardized format. Instead of repeating recoding logic 7 times (once per year), we created reusable helper functions that ensure consistent transformation rules across all years (2006-2012).
-
-**Key Improvement:** Reduced from ~250 lines of repetitive code to ~50 lines of modular, reusable functions.
+Assignment 2 transforms raw, messy SQF data into a clean, standardized format. Instead of repeating recoding logic 7 times (once per year), we created reusable helper functions that ensure consistent transformation rules across all years (2006-2012). Reduced from ~250 lines of repetitive code to ~50 lines of modular, reusable functions.
 
 ---
 
@@ -58,14 +55,15 @@ The pipeline consists of three scripts executed in order:
 - Combines all years into a single tibble
 - Adds `data_year` column for year tracking
 - **Output:** `data/sqf_raw.rds` (3.9M rows × 124 columns)
-- ⚠️ *Run this only once* when you have new raw data
+-  *Run this only once* when you have new raw data
+
 
 #### **2. Recode Data** (`scripts/02-recode-data.R`)
 - Loads raw data from `data/sqf_raw.rds`
 - Applies recoding transformations to each year
 - Standardizes column names, types, and values
 - **Output:** `data/sqf_clean.rds` (3.9M rows × 11 columns)
-- **Processing time:** ~2-3 minutes for full dataset
+
 
 #### **3. Validate Data** (`scripts/03-validate-data.R`)
 - Loads cleaned data from `data/sqf_clean.rds`
@@ -74,25 +72,3 @@ The pipeline consists of three scripts executed in order:
 - **Output:** `output/validation_report.rds`
 
 ---
-
-### Helper Functions
-
-All helper functions are defined in `R/data_recoding.R`:
-
-#### **`recode_race(race_raw)`**
-Converts NYPD single-letter race codes to standardized category names.
-
-**Mapping:**
-- `W` → White
-- `B` → Black
-- `P`, `Q` → Hispanic
-- `A` → Asian
-- `I`, `Z` → Other
-- Invalid codes → NA
-
-**Output:** Ordered factor with levels: White < Black < Hispanic < Asian < Other
-
-```r
-recode_race(c("W", "B", "P", "Q", "X"))
-# [1] White Black Hispanic Hispanic <NA>
-# Levels: White < Black < Hispanic < Asian < Other
