@@ -1,8 +1,8 @@
-### ======= Part 1: Spatial Helper Functions ======= ###
+### ======= Part 1: Spatial Helper Functions ======= 
 ### 1.1 Download and Prepare Census Tracts
 ## Write a function that downloads Census tract geometries for NYC 
 ## and returns a clean `sf` object:
-
+# ==================================================
 
 #' Download and prepare NYC Census tract boundaries
 #'
