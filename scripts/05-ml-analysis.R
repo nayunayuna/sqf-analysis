@@ -215,3 +215,136 @@ baseline_accuracy <- compute_accuracy(train_clean$arrest, baseline_predictions)
 
 cat("Baseline Log-Loss: ", round(baseline_logloss, 4), "\n")
 cat("Baseline Accuracy: ", round(100 * baseline_accuracy, 2), "%\n\n")
+
+
+
+
+# ============================================================================
+# Part 3: Simple Baseline Model (Fit & Evaluate)
+# ============================================================================
+
+# Choose a few key predictors based on exploration
+simple_formula <- arrest ~ age + male + race + precinct + crime_suspected
+
+# Prepare data (remove any rows that might have NAs in these columns)
+model_data <- train_clean %>%
+  select(all_of(c("arrest", "age", "male", "race", "precinct", "crime_suspected"))) %>%
+  drop_na()
+
+cat("Model data has", nrow(model_data), "rows\n\n")
+
+# Fit simple logistic regression
+model_simple <- glm(simple_formula, data = model_data, family = binomial())
+
+# Evaluate on training data
+train_results <- evaluate_model(model_simple, model_data, truth_col = "arrest")
+
+cat("=== SIMPLE MODEL (in-sample performance) ===\n")
+cat("Log-Loss: ", round(train_results$logloss, 4), "\n")
+cat("Accuracy: ", round(100 * train_results$accuracy, 2), "%\n\n")
+
+cat("Improvement over baseline:\n")
+cat("  Log-Loss: ", round(baseline_logloss - train_results$logloss, 4), 
+    " (", round(100 * (baseline_logloss - train_results$logloss) / baseline_logloss, 1), "% better)\n")
+cat("  Accuracy: ", round(100 * (train_results$accuracy - baseline_accuracy), 2), " pp\n\n")
+
+# Look at model summary
+cat("Model coefficients:\n")
+print(summary(model_simple))
+
+# ============================================================================
+# Part 3B: Train/Validation Split to Detect Overfitting
+# ============================================================================
+
+set.seed(2024)
+n <- nrow(model_data)
+train_idx <- sample(1:n, size = 0.7 * n)
+
+train_set <- model_data[train_idx, ]
+val_set <- model_data[-train_idx, ]
+
+cat("Train set:", nrow(train_set), "rows\n")
+cat("Val set:  ", nrow(val_set), "rows\n\n")
+
+# Fit model on training set only
+model_simple_cv <- glm(simple_formula, data = train_set, family = binomial())
+
+# Evaluate on both
+train_eval <- evaluate_model(model_simple_cv, train_set, truth_col = "arrest")
+val_eval <- evaluate_model(model_simple_cv, val_set, truth_col = "arrest")
+
+# Compare
+cat("=== TRAIN vs VALIDATION PERFORMANCE ===\n")
+cat("Training:\n")
+cat("  Log-Loss: ", round(train_eval$logloss, 4), "\n")
+cat("  Accuracy: ", round(100 * train_eval$accuracy, 2), "%\n\n")
+
+cat("Validation:\n")
+cat("  Log-Loss: ", round(val_eval$logloss, 4), "\n")
+cat("  Accuracy: ", round(100 * val_eval$accuracy, 2), "%\n\n")
+
+cat("Overfitting Check (validation - training):\n")
+cat("  Log-Loss diff: ", round(val_eval$logloss - train_eval$logloss, 4), 
+    " (", ifelse(val_eval$logloss > train_eval$logloss, "overfit", "no overfit"), ")\n")
+cat("  Accuracy diff: ", round(100 * (val_eval$accuracy - train_eval$accuracy), 2), " pp\n")
+
+# ============================================================================
+# Part 3C: Enhanced Model with Reason and Circumstance Flags
+# ============================================================================
+
+# New formula with strong predictors
+enhanced_formula <- arrest ~ age + male + race + precinct + crime_suspected +
+                            reason_object + reason_desc + reason_drugs +
+                            reason_furtive + reason_violent + reason_bulge +
+                            reason_casing + reason_clothing + reason_lookout + reason_other +
+                            circ_report + circ_invest + circ_proximity + circ_evasive +
+                            circ_associate + circ_direction + circ_incident + circ_time +
+                            circ_sights + circ_other
+
+# Prepare data with all predictors
+enhanced_data <- train_clean %>%
+  select(all_of(c("arrest", "age", "male", "race", "precinct", "crime_suspected",
+                  "reason_object", "reason_desc", "reason_drugs", "reason_furtive",
+                  "reason_violent", "reason_bulge", "reason_casing", "reason_clothing",
+                  "reason_lookout", "reason_other",
+                  "circ_report", "circ_invest", "circ_proximity", "circ_evasive",
+                  "circ_associate", "circ_direction", "circ_incident", "circ_time",
+                  "circ_sights", "circ_other"))) %>%
+  drop_na()
+
+cat("Enhanced model data:", nrow(enhanced_data), "rows\n\n")
+
+# Do train/val split
+set.seed(2024)
+n_enh <- nrow(enhanced_data)
+train_idx_enh <- sample(1:n_enh, size = 0.7 * n_enh)
+
+train_enh <- enhanced_data[train_idx_enh, ]
+val_enh <- enhanced_data[-train_idx_enh, ]
+
+# Fit on training set
+model_enhanced <- glm(enhanced_formula, data = train_enh, family = binomial())
+
+# Evaluate on both
+train_enh_eval <- evaluate_model(model_enhanced, train_enh, truth_col = "arrest")
+val_enh_eval <- evaluate_model(model_enhanced, val_enh, truth_col = "arrest")
+
+cat("=== ENHANCED MODEL (with reason & circumstance flags) ===\n")
+cat("Training:\n")
+cat("  Log-Loss: ", round(train_enh_eval$logloss, 4), "\n")
+cat("  Accuracy: ", round(100 * train_enh_eval$accuracy, 2), "%\n\n")
+
+cat("Validation:\n")
+cat("  Log-Loss: ", round(val_enh_eval$logloss, 4), "\n")
+cat("  Accuracy: ", round(100 * val_enh_eval$accuracy, 2), "%\n\n")
+
+cat("Overfitting Check:\n")
+cat("  Log-Loss diff: ", round(val_enh_eval$logloss - train_enh_eval$logloss, 4), "\n\n")
+
+# Compare to simple model and baseline
+cat("=== COMPARISON ===\n")
+cat("Baseline Log-Loss:        ", round(baseline_logloss, 4), "\n")
+cat("Simple Model Val Log-Loss:", round(val_eval$logloss, 4), 
+    " (", round(100 * (baseline_logloss - val_eval$logloss) / baseline_logloss, 1), "% better)\n")
+cat("Enhanced Model Val Log-Loss:", round(val_enh_eval$logloss, 4),
+    " (", round(100 * (baseline_logloss - val_enh_eval$logloss) / baseline_logloss, 1), "% better)\n")

@@ -140,3 +140,72 @@ compare_performance <- function(formula, train_data, val_data, truth_col = "arre
     n = c(nrow(train_data), nrow(val_data))
   )
 }
+
+
+# ============================================================================
+# K-Fold Cross-Validation for Logistic Regression
+# ============================================================================
+
+# Performs k-fold cross-validation on a logistic regression model.
+# Splits data into k folds, trains on k-1, evaluates on 1, repeats k times.
+# Returns average log-loss and accuracy across all folds.
+
+#' @param formula Model formula (e.g., arrest ~ age + male + race)
+#' @param data Full dataset to cross-validate on
+#' @param k Number of folds (default 5)
+#' @param truth_col Name of outcome column (default "arrest")
+#' @param seed Random seed for reproducibility (default 2024)
+#'
+#' @return Data frame with columns:
+#   - fold: fold number (1 to k)
+#   - logloss: log-loss for that fold
+#   - accuracy: accuracy for that fold
+#   - n_train: training set size
+#   - n_test: test set size
+#   And attributes with mean and sd of metrics
+
+#' @export
+cv_logistic <- function(formula, data, k = 5, truth_col = "arrest", seed = 2024) {
+  set.seed(seed)
+  
+  n <- nrow(data)
+  fold_ids <- sample(rep(1:k, length.out = n))
+  
+  results <- data.frame(
+    fold = integer(),
+    logloss = numeric(),
+    accuracy = numeric(),
+    n_train = integer(),
+    n_test = integer()
+  )
+  
+  for (fold in 1:k) {
+    # Split into train and test for this fold
+    test_idx <- which(fold_ids == fold)
+    train_fold <- data[-test_idx, ]
+    test_fold <- data[test_idx, ]
+    
+    # Fit model on training fold
+    model <- glm(formula, data = train_fold, family = binomial())
+    
+    # Evaluate on test fold
+    eval_results <- evaluate_model(model, test_fold, truth_col)
+    
+    # Store results
+    results <- rbind(results, data.frame(
+      fold = fold,
+      logloss = eval_results$logloss,
+      accuracy = eval_results$accuracy,
+      n_train = nrow(train_fold),
+      n_test = nrow(test_fold)
+    ))
+  }
+  
+  # Compute and store mean and sd
+  attr(results, "mean_logloss") <- mean(results$logloss)
+  attr(results, "sd_logloss") <- sd(results$logloss)
+  attr(results, "mean_accuracy") <- mean(results$accuracy)
+  attr(results, "sd_accuracy") <- sd(results$accuracy)
+  
+  results
+}
