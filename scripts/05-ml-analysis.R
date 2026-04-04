@@ -348,3 +348,21 @@ cat("Simple Model Val Log-Loss:", round(val_eval$logloss, 4),
     " (", round(100 * (baseline_logloss - val_eval$logloss) / baseline_logloss, 1), "% better)\n")
 cat("Enhanced Model Val Log-Loss:", round(val_enh_eval$logloss, 4),
     " (", round(100 * (baseline_logloss - val_enh_eval$logloss) / baseline_logloss, 1), "% better)\n")
+
+# ============================================================================
+# Part 4: K-Fold Cross Validation 
+# ============================================================================
+
+cat("\n=== 5-FOLD CROSS-VALIDATION (Simple Model) ===\n")
+cv_simple <- cv_logistic(simple_formula, data = model_data, k = 5, seed = 2024)
+print(cv_simple)
+cat("\nAverage Log-Loss:", round(attr(cv_simple, "mean_logloss"), 4),
+    "± ", round(attr(cv_simple, "sd_logloss"), 4), "\n")
+cat("Average Accuracy:", round(100 * attr(cv_simple, "mean_accuracy"), 2), "%\n\n")
+
+cat("\n=== 5-FOLD CROSS-VALIDATION (Enhanced Model) ===\n")
+cv_enhanced <- cv_logistic(enhanced_formula, data = enhanced_data, k = 5, seed = 2024)
+print(cv_enhanced)
+cat("\nAverage Log-Loss:", round(attr(cv_enhanced, "mean_logloss"), 4),
+    "± ", round(attr(cv_enhanced, "sd_logloss"), 4), "\n")
+cat("Average Accuracy:", round(100 * attr(cv_enhanced, "mean_accuracy"), 2), "%\n\n")
