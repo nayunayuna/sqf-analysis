@@ -102,7 +102,7 @@ The pipeline consists of this scripts executed following scripts 1 to 3:
 - Groups by year and tract (2006-2012)
  **Output:** `data/tract_by_year.rds` (15,080 rows: 2,158 tracts × 7 years)
 
-### 6. Create Maps 
+# Create Maps 
 - Joins aggregated data back to tract geometries
 - Creates choropleth maps using ggplot2 + geom_sf()
 - Map 1: Total stops by Census tract (2010)
