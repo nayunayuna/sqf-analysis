@@ -1,5 +1,5 @@
 # ============================================================================
-# R/05-ml-analysis.R
+# scripts/05-ml-analysis.R
 # Machine learning analysis of geocoded SQF data
 # ============================================================================
 # Part 1. Load and explore data
@@ -172,3 +172,46 @@ cat("Retained:", round(100 * nrow(train_clean) / nrow(train_data), 1), "% of dat
 # Check arrest rate didn't change much
 cat("Original arrest rate:", round(100 * mean(train_data$arrest), 2), "%\n")
 cat("Clean arrest rate:   ", round(100 * mean(train_clean$arrest), 2), "%\n")
+
+
+
+
+
+# ============================================================================
+# Part 2. Evaluation Infrastructure 
+# ============================================================================
+
+source("R/ml_functions.R")
+
+# --- Test functions on simple examples ---
+
+# Test compute_logloss
+y_test <- c(0, 0, 1, 1)
+p_test <- c(0.1, 0.2, 0.8, 0.9)
+cat("Test logloss:", compute_logloss(y_test, p_test), "\n")
+
+# Test compute_accuracy
+cat("Test accuracy:", compute_accuracy(y_test, p_test), "\n")
+
+# Test baseline prediction
+cat("Test baseline:", baseline_prediction(y_test), "\n")
+
+
+# ============================================================================
+# Compute baseline (majority-class always predicting arrest rate)
+# ============================================================================
+
+baseline_rate <- baseline_prediction(train_clean$arrest)
+
+cat("\n=== BASELINE MODEL (predict arrest rate for everyone) ===\n")
+cat("Overall arrest rate:", round(100 * baseline_rate, 2), "%\n")
+
+# Create vector of baseline predictions (same probability for all rows)
+baseline_predictions <- rep(baseline_rate, nrow(train_clean))
+
+# Evaluate baseline
+baseline_logloss <- compute_logloss(train_clean$arrest, baseline_predictions)
+baseline_accuracy <- compute_accuracy(train_clean$arrest, baseline_predictions)
+
+cat("Baseline Log-Loss: ", round(baseline_logloss, 4), "\n")
+cat("Baseline Accuracy: ", round(100 * baseline_accuracy, 2), "%\n\n")
