@@ -209,3 +209,46 @@ cv_logistic <- function(formula, data, k = 5, truth_col = "arrest", seed = 2024)
   
   results
 }
+
+
+# ============================================================================
+#' Cross-Validated Lasso for Logistic Regression
+#'
+#' Uses glmnet with cross-validation to find optimal regularization strength (lambda).
+#'
+#' @param formula Model formula
+#' @param data Dataset
+#' @param alpha Regularization type: 1 = lasso, 0.5 = elastic net
+#' @param k Number of folds
+#' @param truth_col Name of outcome column
+#'
+#' @return List with cv_model, best_lambda, best_logloss
+#'
+#' @export
+fit_regularized_model <- function(formula, data, alpha = 1, k = 5, truth_col = "arrest") {
+  
+  # Prepare data
+  y <- as.numeric(data[[truth_col]])
+  X <- model.matrix(formula, data = data)[, -1]  # Remove intercept
+  
+  # Fit lasso with CV
+  cv_fit <- glmnet::cv.glmnet(
+    x = X,
+    y = y,
+    family = "binomial",
+    alpha = alpha,
+    nfolds = k,
+    type.measure = "deviance"
+  )
+  
+  # Extract best lambda and error
+  best_lambda <- cv_fit$lambda.min
+  best_logloss <- cv_fit$cvm[cv_fit$lambda == best_lambda] / 2
+  
+  list(
+    cv_model = cv_fit,
+    best_lambda = best_lambda,
+    best_logloss = best_logloss
+  )
+}
+

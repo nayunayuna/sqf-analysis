@@ -366,3 +366,155 @@ print(cv_enhanced)
 cat("\nAverage Log-Loss:", round(attr(cv_enhanced, "mean_logloss"), 4),
     "± ", round(attr(cv_enhanced, "sd_logloss"), 4), "\n")
 cat("Average Accuracy:", round(100 * attr(cv_enhanced, "mean_accuracy"), 2), "%\n\n")
+
+
+
+
+
+
+# ============================================================================
+# Part B: Regularization and Hyperparameter Tuning
+# ============================================================================
+
+cat("\n=== Testing LASSO ===\n")
+
+# Debug: try step by step
+cat("Preparing data...\n")
+y <- as.numeric(enhanced_data$arrest)
+X <- model.matrix(enhanced_formula, data = enhanced_data)[, -1]
+
+cat("Data ready. y:", length(y), "rows, X:", nrow(X), "x", ncol(X), "\n\n")
+
+cat("Fitting lasso...\n")
+cv_lasso <- glmnet::cv.glmnet(
+  x = X,
+  y = y,
+  family = "binomial",
+  alpha = 1,
+  nfolds = 5,
+  type.measure = "deviance"
+)
+
+cat("Lasso fitted!\n")
+cat("Best lambda:", cv_lasso$lambda.min, "\n")
+cat("CV error at best lambda:", cv_lasso$cvm[cv_lasso$lambda == cv_lasso$lambda.min] / 2, "\n\n")
+
+# Plot
+plot(cv_lasso, main = "Lasso Regularization Path")
+
+# ============================================================================
+# Compare different regularization strengths
+# ============================================================================
+
+cat("\n=== TESTING MULTIPLE ALPHA VALUES ===\n")
+cat("(alpha = 1 is pure lasso, alpha = 0 is pure ridge)\n\n")
+
+alpha_values <- c(0, 0.25, 0.5, 0.75, 1)
+results_alpha <- data.frame(
+  alpha = numeric(),
+  best_lambda = numeric(),
+  cv_logloss = numeric()
+)
+
+for (alpha in alpha_values) {
+  cat("Testing alpha =", alpha, "...\n")
+  
+  cv_fit <- glmnet::cv.glmnet(
+    x = X,
+    y = y,
+    family = "binomial",
+    alpha = alpha,
+    nfolds = 5,
+    type.measure = "deviance"
+  )
+  
+  best_lambda <- cv_fit$lambda.min
+  best_logloss <- cv_fit$cvm[cv_fit$lambda == best_lambda] / 2
+  
+  results_alpha <- rbind(results_alpha, data.frame(
+    alpha = alpha,
+    best_lambda = best_lambda,
+    cv_logloss = best_logloss
+  ))
+}
+
+print(results_alpha)
+
+# Find the best
+best_row <- which.min(results_alpha$cv_logloss)
+cat("\n=== BEST REGULARIZATION ===\n")
+cat("Alpha:", results_alpha$alpha[best_row], "\n")
+cat("Lambda:", round(results_alpha$best_lambda[best_row], 6), "\n")
+cat("CV Log-Loss:", round(results_alpha$cv_logloss[best_row], 4), "\n\n")
+
+cat("=== FINAL COMPARISON ===\n")
+cat("Baseline:                ", round(baseline_logloss, 4), "\n")
+cat("Enhanced (unregularized):", round(attr(cv_enhanced, "mean_logloss"), 4), "\n")
+cat("Best Regularized:        ", round(results_alpha$cv_logloss[best_row], 4), "\n")
+cat("Improvement over baseline:", round(100 * (baseline_logloss - results_alpha$cv_logloss[best_row]) / baseline_logloss, 1), "%\n")
+
+
+
+
+# ============================================================================
+# Visualize comparison of models
+# ============================================================================
+
+library(ggplot2)
+
+# Create comparison dataframe
+model_comparison <- data.frame(
+  Model = c("Baseline", "Simple", "Enhanced", "Enhanced\n(Ridge)", "Enhanced\n(Lasso)"),
+  Log_Loss = c(
+    baseline_logloss,
+    attr(cv_simple, "mean_logloss"),
+    attr(cv_enhanced, "mean_logloss"),
+    0.2095231,
+    0.2094839
+  ),
+  Improvement = c(
+    0,
+    (baseline_logloss - attr(cv_simple, "mean_logloss")) / baseline_logloss * 100,
+    (baseline_logloss - attr(cv_enhanced, "mean_logloss")) / baseline_logloss * 100,
+    (baseline_logloss - 0.2095231) / baseline_logloss * 100,
+    (baseline_logloss - 0.2094839) / baseline_logloss * 100
+  )
+)
+
+print(model_comparison)
+
+# Plot 1: Log-Loss Comparison
+p1 <- ggplot(model_comparison, aes(x = reorder(Model, Log_Loss), y = Log_Loss, fill = Model)) +
+  geom_col() +
+  geom_hline(yintercept = baseline_logloss, linetype = "dashed", color = "red", size = 1) +
+  annotate("text", x = 0.5, y = baseline_logloss + 0.003, label = "Baseline", color = "red") +
+  labs(
+    title = "Model Comparison: Cross-Validated Log-Loss",
+    subtitle = "Lower is better. Enhanced model dominates.",
+    x = "Model",
+    y = "Log-Loss",
+    fill = "Model"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0.2, 0.24)
+
+print(p1)
+ggsave("output/model_comparison_logloss.png", p1, width = 8, height = 5)
+
+# Plot 2: Improvement Over Baseline
+p2 <- ggplot(model_comparison, aes(x = reorder(Model, -Improvement), y = Improvement, fill = Model)) +
+  geom_col() +
+  labs(
+    title = "Improvement Over Baseline",
+    subtitle = "% reduction in log-loss",
+    x = "Model",
+    y = "Improvement (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p2)
+ggsave("output/model_improvement.png", p2, width = 8, height = 5)
+
+cat("\nPlots saved to output/\n")
