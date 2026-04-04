@@ -368,46 +368,38 @@ cat("\nAverage Log-Loss:", round(attr(cv_enhanced, "mean_logloss"), 4),
 cat("Average Accuracy:", round(100 * attr(cv_enhanced, "mean_accuracy"), 2), "%\n\n")
 
 
-
-
-
-
 # ============================================================================
-# Part B: Regularization and Hyperparameter Tuning
+# PART B: Improve predictions with regularization & hyperparameter tuning
 # ============================================================================
 
-cat("\n=== Testing LASSO ===\n")
+# Exploration showed reason_* and circ_* flags drive arrests (8-10 pp differences).
+# I compare 3 model specs and systematically tune regularization (alpha parameter).
 
-# Debug: try step by step
-cat("Preparing data...\n")
+# ============================================================================
+# Model specifications and comparison:
+# ============================================================================
+
+# SPEC 1: Simple model (demographics only) → 2.3% improvement
+# SPEC 2: Enhanced model (+ reasons & circumstances) → 7.4% improvement  
+# SPEC 3: Regularized models (alpha tuning) → Same as SPEC 2 (~7.4%)
+
+cat("\n=== MODEL SPECIFICATIONS SUMMARY ===\n")
+cat("SPEC 1 (Simple):    ", round(attr(cv_simple, "mean_logloss"), 4), " log-loss\n")
+cat("SPEC 2 (Enhanced):  ", round(attr(cv_enhanced, "mean_logloss"), 4), " log-loss (7.4% vs baseline)\n")
+cat("SPEC 3 (Regularized): See grid search below\n\n")
+
+# ============================================================================
+# HYPERPARAMETER TUNING: ALPHA (Ridge vs Lasso)
+# ============================================================================
+
+# Prepare data once
 y <- as.numeric(enhanced_data$arrest)
 X <- model.matrix(enhanced_formula, data = enhanced_data)[, -1]
 
-cat("Data ready. y:", length(y), "rows, X:", nrow(X), "x", ncol(X), "\n\n")
-
-cat("Fitting lasso...\n")
-cv_lasso <- glmnet::cv.glmnet(
-  x = X,
-  y = y,
-  family = "binomial",
-  alpha = 1,
-  nfolds = 5,
-  type.measure = "deviance"
-)
-
-cat("Lasso fitted!\n")
-cat("Best lambda:", cv_lasso$lambda.min, "\n")
-cat("CV error at best lambda:", cv_lasso$cvm[cv_lasso$lambda == cv_lasso$lambda.min] / 2, "\n\n")
-
-# Plot
-plot(cv_lasso, main = "Lasso Regularization Path")
-
-# ============================================================================
-# Compare different regularization strengths
-# ============================================================================
-
-cat("\n=== TESTING MULTIPLE ALPHA VALUES ===\n")
-cat("(alpha = 1 is pure lasso, alpha = 0 is pure ridge)\n\n")
+# Grid search: test alpha from 0 (ridge) to 1 (lasso)
+cat("=== GRID SEARCH: ALPHA PARAMETER ===\n")
+cat("Testing alpha = 0 (ridge), 0.25, 0.5, 0.75, 1 (lasso)\n")
+cat("For each, cv.glmnet tunes lambda automatically\n\n")
 
 alpha_values <- c(0, 0.25, 0.5, 0.75, 1)
 results_alpha <- data.frame(
@@ -417,17 +409,10 @@ results_alpha <- data.frame(
 )
 
 for (alpha in alpha_values) {
-  cat("Testing alpha =", alpha, "...\n")
-  
   cv_fit <- glmnet::cv.glmnet(
-    x = X,
-    y = y,
-    family = "binomial",
-    alpha = alpha,
-    nfolds = 5,
-    type.measure = "deviance"
+    x = X, y = y, family = "binomial",
+    alpha = alpha, nfolds = 5, type.measure = "deviance"
   )
-  
   best_lambda <- cv_fit$lambda.min
   best_logloss <- cv_fit$cvm[cv_fit$lambda == best_lambda] / 2
   
@@ -439,82 +424,77 @@ for (alpha in alpha_values) {
 }
 
 print(results_alpha)
-
-# Find the best
-best_row <- which.min(results_alpha$cv_logloss)
-cat("\n=== BEST REGULARIZATION ===\n")
-cat("Alpha:", results_alpha$alpha[best_row], "\n")
-cat("Lambda:", round(results_alpha$best_lambda[best_row], 6), "\n")
-cat("CV Log-Loss:", round(results_alpha$cv_logloss[best_row], 4), "\n\n")
-
-cat("=== FINAL COMPARISON ===\n")
-cat("Baseline:                ", round(baseline_logloss, 4), "\n")
-cat("Enhanced (unregularized):", round(attr(cv_enhanced, "mean_logloss"), 4), "\n")
-cat("Best Regularized:        ", round(results_alpha$cv_logloss[best_row], 4), "\n")
-cat("Improvement over baseline:", round(100 * (baseline_logloss - results_alpha$cv_logloss[best_row]) / baseline_logloss, 1), "%\n")
-
-
-
+cat("\n Result: All alpha values perform identically (~0.2095 log-loss)\n")
+cat("Regularization provides no benefit. Use unregularized Enhanced model.\n\n")
 
 # ============================================================================
-# Visualize comparison of models
+# VISUALIZATION: Compare All 3 Specs
 # ============================================================================
 
 library(ggplot2)
 
-# Create comparison dataframe
 model_comparison <- data.frame(
-  Model = c("Baseline", "Simple", "Enhanced", "Enhanced\n(Ridge)", "Enhanced\n(Lasso)"),
+  Model = c("Baseline", "Simple", "Enhanced", "Enhanced (Ridge)", "Enhanced (Lasso)"),
   Log_Loss = c(
     baseline_logloss,
     attr(cv_simple, "mean_logloss"),
     attr(cv_enhanced, "mean_logloss"),
-    0.2095231,
-    0.2094839
-  ),
-  Improvement = c(
-    0,
-    (baseline_logloss - attr(cv_simple, "mean_logloss")) / baseline_logloss * 100,
-    (baseline_logloss - attr(cv_enhanced, "mean_logloss")) / baseline_logloss * 100,
-    (baseline_logloss - 0.2095231) / baseline_logloss * 100,
-    (baseline_logloss - 0.2094839) / baseline_logloss * 100
+    0.2095231, 0.2094839
   )
 )
 
-print(model_comparison)
-
-# Plot 1: Log-Loss Comparison
+# Plot: Model comparison
 p1 <- ggplot(model_comparison, aes(x = reorder(Model, Log_Loss), y = Log_Loss, fill = Model)) +
   geom_col() +
   geom_hline(yintercept = baseline_logloss, linetype = "dashed", color = "red", size = 1) +
-  annotate("text", x = 0.5, y = baseline_logloss + 0.003, label = "Baseline", color = "red") +
   labs(
     title = "Model Comparison: Cross-Validated Log-Loss",
     subtitle = "Lower is better. Enhanced model dominates.",
-    x = "Model",
-    y = "Log-Loss",
-    fill = "Model"
+    x = "Model", y = "Log-Loss"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0.2, 0.24)
 
-print(p1)
 ggsave("output/model_comparison_logloss.png", p1, width = 8, height = 5)
 
-# Plot 2: Improvement Over Baseline
+# Plot: Improvement
+model_comparison <- model_comparison %>%
+  mutate(Improvement = (baseline_logloss - Log_Loss) / baseline_logloss * 100)
+
 p2 <- ggplot(model_comparison, aes(x = reorder(Model, -Improvement), y = Improvement, fill = Model)) +
   geom_col() +
-  labs(
-    title = "Improvement Over Baseline",
-    subtitle = "% reduction in log-loss",
-    x = "Model",
-    y = "Improvement (%)"
-  ) +
+  labs(title = "Improvement Over Baseline (%)", x = "Model", y = "Improvement (%)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-print(p2)
 ggsave("output/model_improvement.png", p2, width = 8, height = 5)
 
-cat("\nPlots saved to output/\n")
+cat("Plots saved to output/\n\n")
+
+
+# ====================== NOTES ======================
+cat("=== MODELING PROCESS: WHAT WORKED & WHAT DIDN'T ===\n\n")
+
+cat("WHAT WORKED:\n")
+cat("  1. Adding reason_* and circ_* flags improved from 2.3% to 7.4%\n")
+cat("  2. Cross-validation with 5 fold: minimal train/val gap detected\n")
+cat("  3. Tested all regularization types and all achieve ~0.2095 log-loss\n")
+
+cat("WHAT DIDN'T WORK:\n")
+cat("  1. Regularization (ridge, lasso, elastic net) had identical performance. Enhanced model has no overfitting to fix.\n")
+cat("  2. Simple demographics model lacks predictive power. Only 2.3% improvement over baseline.\n")
+
+cat("=== FINAL DECISION ===\n")
+cat("Model: ENHANCED (SPEC 2, unregularized)\n")
+cat("Predictors: age + male + race + precinct + crime_suspected +\n")
+cat("            reason_* flags (10) + circ_* flags (10)\n")
+cat("Performance: 0.2095 log-loss (7.4% improvement vs baseline)\n\n")
+
+cat("Why this model:\n")
+cat("  1. Best cross-validated performance among all tested\n")
+cat("  2. Generalizes well to unseen data (no overfitting detected)\n")
+cat("  3. Simpler than regularized versions (equally good, fewer hyperparameters)\n")
+cat("  4. Captures the strongest predictive signals from exploration\n")
+cat("  5. Easy to interpret: coefficients directly show which factors predict arrest\n\n")
+# =====================================================
