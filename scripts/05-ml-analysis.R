@@ -368,8 +368,12 @@ cat("\nAverage Log-Loss:", round(attr(cv_enhanced, "mean_logloss"), 4),
 cat("Average Accuracy:", round(100 * attr(cv_enhanced, "mean_accuracy"), 2), "%\n\n")
 
 
+
+
+
+
 # ============================================================================
-# PART B: Improve predictions with regularization & hyperparameter tuning
+# Part B: Improve predictions with regularization & hyperparameter tuning
 # ============================================================================
 
 # Exploration showed reason_* and circ_* flags drive arrests (8-10 pp differences).
@@ -389,7 +393,7 @@ cat("SPEC 2 (Enhanced):  ", round(attr(cv_enhanced, "mean_logloss"), 4), " log-l
 cat("SPEC 3 (Regularized): See grid search below\n\n")
 
 # ============================================================================
-# HYPERPARAMETER TUNING: ALPHA (Ridge vs Lasso)
+# Hyperparameter Tuning: Alpha (Ridge vs Lasso)
 # ============================================================================
 
 # Prepare data once
@@ -428,7 +432,7 @@ cat("\n Result: All alpha values perform identically (~0.2095 log-loss)\n")
 cat("Regularization provides no benefit. Use unregularized Enhanced model.\n\n")
 
 # ============================================================================
-# VISUALIZATION: Compare All 3 Specs
+# Visualization: Compare All 3 Specs
 # ============================================================================
 
 library(ggplot2)
@@ -498,3 +502,101 @@ cat("  3. Simpler than regularized versions (equally good, fewer hyperparameters
 cat("  4. Captures the strongest predictive signals from exploration\n")
 cat("  5. Easy to interpret: coefficients directly show which factors predict arrest\n\n")
 # =====================================================
+
+
+
+# ============================================================================
+# Part 6: Generate Holdout Predictions
+# ============================================================================
+
+cat("\n=== GENERATING HOLDOUT PREDICTIONS ===\n\n")
+
+# Load holdout data
+holdout_data <- readRDS("data/sqf_ml_holdout.rds")
+
+cat("Holdout data loaded:", nrow(holdout_data), "rows\n\n")
+
+# --- Impute missing values---
+cat("Imputing missing values...\n")
+
+# --- Get imputation values from training data ---
+train_age_median <- median(enhanced_data$age, na.rm = TRUE)
+train_male_mode <- names(which.max(table(enhanced_data$male)))  # Most common value
+train_male_mode <- as.logical(train_male_mode)
+
+cat("Using training data statistics for imputation:\n")
+cat("  age (median):", train_age_median, "\n")
+cat("  male (mode):", train_male_mode, "\n\n")
+
+# --- Prepare holdout with imputation ---
+holdout_clean <- holdout_data %>%
+  # Handle location_type missing
+  mutate(location_type = fct_na_value_to_level(location_type, level = "unknown")) %>%
+  # Impute missing age with median from training
+  mutate(age = ifelse(is.na(age), train_age_median, age)) %>%
+  # Impute missing male with mode from training
+  mutate(male = ifelse(is.na(male), train_male_mode, male))
+
+# --- Verify no more NAs in critical columns ---
+missing_check <- colSums(is.na(holdout_clean[c("age", "male", "precinct", "crime_suspected")]))
+if (sum(missing_check) > 0) {
+  cat("WARNING: Still missing values:\n")
+  print(missing_check[missing_check > 0])
+} else {
+  cat("✓ No missing values in critical predictors\n")
+}
+
+cat("Holdout data ready:", nrow(holdout_clean), "rows\n\n")
+
+
+# --- Fit final model on all training data ---
+cat("Fitting final Enhanced model on all training data (", nrow(enhanced_data), " rows)...\n")
+cat("This maximizes information for predictions\n\n")
+
+final_model <- glm(enhanced_formula, data = enhanced_data, family = binomial())
+
+cat("✓ Model fitted with", length(coef(final_model)), "coefficients\n\n")
+
+cat("Generating probability predictions...\n")
+holdout_predictions <- predict(final_model, newdata = holdout_clean, type = "response")
+
+cat("✓ Predictions generated:", length(holdout_predictions), "\n")
+cat("✓ NA values:", sum(is.na(holdout_predictions)), "\n")
+cat("✓ Out of range [0,1]:", sum(holdout_predictions < 0 | holdout_predictions > 1), "\n\n")
+
+# ============================================================================
+# Create submission dataframe and save to CSV
+# ============================================================================
+
+cat("Creating submission dataframe...\n")
+
+submission <- data.frame(
+  id = holdout_data$id,  # Use ORIGINAL holdout IDs (all 50,000)
+  predicted_probability = holdout_predictions
+)
+
+cat("Submission has", nrow(submission), "rows\n")
+cat("Columns: id, predicted_probability\n\n")
+
+# Create output directory if needed
+if (!dir.exists("output")) {
+  dir.create("output")
+}
+
+# Save to CSV
+output_path <- "output/holdout_predictions.csv"
+write.csv(submission, file = output_path, row.names = FALSE)
+
+cat("✓ Predictions saved to:", output_path, "\n\n")
+
+# Show first 10 rows
+cat("First 10 predictions:\n")
+print(head(submission, 10))
+cat("...\n\n")
+
+
+
+# ============================================================================
+# Last part: Validate
+# ============================================================================
+source("scripts/validate-submission.R")
