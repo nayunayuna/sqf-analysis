@@ -375,14 +375,11 @@ cat("Average Accuracy:", round(100 * attr(cv_enhanced, "mean_accuracy"), 2), "%\
 # ============================================================================
 # Part B: Improve predictions with regularization & hyperparameter tuning
 # ============================================================================
-
 # Exploration showed reason_* and circ_* flags drive arrests (8-10 pp differences).
 # I compare 3 model specs and systematically tune regularization (alpha parameter).
 
-# ============================================================================
-# Model specifications and comparison:
-# ============================================================================
-
+# 
+# === Model specifications and comparison ===
 # SPEC 1: Simple model (demographics only) → 2.3% improvement
 # SPEC 2: Enhanced model (+ reasons & circumstances) → 7.4% improvement  
 # SPEC 3: Regularized models (alpha tuning) → Same as SPEC 2 (~7.4%)
@@ -392,9 +389,7 @@ cat("SPEC 1 (Simple):    ", round(attr(cv_simple, "mean_logloss"), 4), " log-los
 cat("SPEC 2 (Enhanced):  ", round(attr(cv_enhanced, "mean_logloss"), 4), " log-loss (7.4% vs baseline)\n")
 cat("SPEC 3 (Regularized): See grid search below\n\n")
 
-# ============================================================================
-# Hyperparameter Tuning: Alpha (Ridge vs Lasso)
-# ============================================================================
+# === Hyperparameter Tuning: Alpha (Ridge vs Lasso) ===
 
 # Prepare data once
 y <- as.numeric(enhanced_data$arrest)
@@ -431,9 +426,8 @@ print(results_alpha)
 cat("\n Result: All alpha values perform identically (~0.2095 log-loss)\n")
 cat("Regularization provides no benefit. Use unregularized Enhanced model.\n\n")
 
-# ============================================================================
-# Visualization: Compare All 3 Specs
-# ============================================================================
+
+# === Visualization: Compare All 3 Specs ===
 
 library(ggplot2)
 
@@ -501,7 +495,6 @@ cat("  2. Generalizes well to unseen data (no overfitting detected)\n")
 cat("  3. Simpler than regularized versions (equally good, fewer hyperparameters)\n")
 cat("  4. Captures the strongest predictive signals from exploration\n")
 cat("  5. Easy to interpret: coefficients directly show which factors predict arrest\n\n")
-# =====================================================
 
 
 
